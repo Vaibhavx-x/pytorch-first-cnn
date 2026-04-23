@@ -218,3 +218,7 @@ checkpoints/
 *.pth
 *.pt
 *.onnx
+
+my_test_image.jpg
+my_test_image1.jpg
+my_test_image2.jpg

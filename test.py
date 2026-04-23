@@ -2,15 +2,18 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from dataset import get_test_loader,classes
-from model import Net
+from resnet import Net
 
 # Load the trained model
 def main():
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = Net()
     net.load_state_dict(torch.load('checkpoints/cifar_net.pth'))
+    net.to(device)  # Move the model to the GPU if available
     net.eval()  # Set the model to evaluation mode
 
-    testloader = get_test_loader(batch_size=4)
+    testloader = get_test_loader(batch_size=32)
     correct = 0
     total = 0
     # since we're not training, we don't need to calculate the gradients for our outputs
@@ -20,6 +23,7 @@ def main():
     with torch.no_grad():
         for data in testloader:
             images, labels = data
+            images, labels = images.to(device), labels.to(device)  # Move data to the GPU if available
             # calculate outputs by running images through the network
             outputs = net(images)
             # the class with the highest energy is what we choose as prediction
