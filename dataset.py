@@ -14,6 +14,7 @@ def get_train_loader(batch_size=128):
         
         # Randomly rotate the image by up to 10 degrees
         transforms.RandomRotation(degrees=10),
+        # transforms.RandomCrop(32, padding=4),
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         transforms.RandomErasing(p=0.5, scale=(0.02, 0.2))# Randomly erase a portion of the image 50% of the time, with a random size between 2% and 20% of the original image

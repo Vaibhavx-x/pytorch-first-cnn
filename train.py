@@ -18,14 +18,19 @@ def main():
 
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)  # Use label smoothing to help prevent overfitting
     # Pass the instance parameters, not the class
-    # optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
-    optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=1e-4) # Use Adam optimizer with weight decay for regularization    
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4, nesterov=False) # Use SGD with momentum, weight decay for regularization, and Nesterov momentum
+    # optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=1e-4) # Use Adam optimizer with weight decay for regularization    
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
+    # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5)
+    print(f'Using optimizer: {optimizer.__class__.__name__}')
+    print(f'Using scheduler: {scheduler.__class__.__name__}')
+
 
     best_acc = 0
-    patience = 15
+    patience = 25
     trigger_times = 0
+    scheduler_offset = 0  # This will track how many epochs have passed since the last scheduler reset
 
     # 1. Initialize the Scaler before the loop
     scaler = torch.amp.GradScaler('cuda') 
@@ -33,6 +38,22 @@ def main():
     for epoch in range(500):
         running_loss = 0.0
         net.train()  # Set the model to training mode
+
+        # if epoch == 26:
+        #     print('Updating optimizer: Changing max LR to 0.001 and weight decay to 1e-4...')
+            
+        #     # 1. Safely update the existing optimizer parameters without losing momentum
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] = 0.001          # Update LR so the new scheduler registers it
+        #         param_group['initial_lr'] = 0.001    # Update initial LR for the scheduler
+        #         param_group['weight_decay'] = 1e-4 # Update weight decay
+            
+        #     # 2. Recreate the scheduler so it picks up the new 0.001 base learning rate
+        #     scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
+            
+        #     # 3. Set the offset to 26 so the new scheduler thinks it's starting at epoch 0
+        #     scheduler_offset = 26
+        
         
         for i, data in enumerate(train_loader, 0):
             # 4. MOVE DATA TO GPU
@@ -51,8 +72,8 @@ def main():
             scaler.step(optimizer)
             scaler.update()# Update the weights
             # Update the learning rate based on the epoch and batch index for CosineAnnealingWarmRestarts scheduler
-            scheduler.step(epoch + i / len(train_loader))  
-
+            # scheduler.step(epoch - scheduler_offset + i / len(train_loader))  
+            
             running_loss += loss.item()
             if i % 50 == 49:
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 50:.3f}')
@@ -73,7 +94,7 @@ def main():
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-
+        
         accuracy = 100 * correct / total
         print(f'Accuracy of the network on {epoch + 1} epoch: {accuracy} %')
         
@@ -86,14 +107,16 @@ def main():
         else:
             trigger_times += 1
             print(f'EarlyStopping counter: {trigger_times} out of {patience}')
+            print(f'Current best accuracy: {best_acc:.2f}%')
             if trigger_times >= patience:
                 print(f'Early stopping at {epoch + 1}!')
                 print(f'Best accuracy: {best_acc:.2f}%')
                 break
-        # # Update the learning rate for StepLR scheduler
-        # scheduler.step()
+        
+        # scheduler.step() # use this for StepLR scheduler
+        scheduler.step(accuracy) # use this for ReduceLROnPlateau scheduler
         current_lr = scheduler.get_last_lr()[0]
-        print(f'Current learning rate: {current_lr:.4f}')
+        print(f'Current learning rate: {current_lr:.5f}')
 
             
 

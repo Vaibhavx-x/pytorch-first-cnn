@@ -37,7 +37,7 @@ def main():
                 total_pred[classes[label]] += 1
 
 
-    print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+    print(f'Accuracy of the network on the 10000 test images: {100.00 * correct / total} %')
 
 
     # print accuracy for each class
